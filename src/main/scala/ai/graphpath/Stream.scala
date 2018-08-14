@@ -14,8 +14,6 @@ import org.apache.kafka.streams.KafkaStreams.State
 import org.apache.kafka.streams.kstream.ValueMapper
 import org.apache.kafka.streams.{KafkaStreams, StreamsBuilder}
 
-import scala.concurrent.Await
-
 @Singleton
 class Stream @Inject()(http: HttpExecutor, cache: Option[Cache], mapper: ObjectMapper)
                       (implicit config: Config) extends StrictLogging {
@@ -38,24 +36,20 @@ class Stream @Inject()(http: HttpExecutor, cache: Option[Cache], mapper: ObjectM
   }
 
   private def process(message: KafkaMessage) = {
-    import concurrent.duration._
-    val exists = doIfCacheable(message) { (id, c) =>
-      Await.result(c.exists(id), 5.seconds)
-    }
-
-    if (exists.getOrElse(false)) {
-      // send http request
+    if (cache.isDefined && message.id.isDefined) {
+      if (!cache.get.syncExists(message.id.get)) {
+        // send http request
+        http.syncExecute(message)
+        // store id to prevent future duplications
+        cache.get.syncInsert(message.id.get)
+      } else {
+        logger.warn(s"Ignoring duplicated message id: '${message.id.get}'.")
+      }
+    } else {
+      logger.debug(s"Caching is not available, executing request id '${message.id.get}' without duplication control.")
+      // if cache is not enabled or there is no id, execute it anyways
       http.syncExecute(message)
-      // if successful, persist id
-      doIfCacheable(message)((id, c) => c.insert(id))
     }
-  }
-
-  private def doIfCacheable[A](message: KafkaMessage)(f: (String, Cache) => A): Option[A] = {
-    for {
-      id <- message.id
-      c <- cache
-    } yield f(id, c)
   }
 
   private val streamingConfig = kafkaConfig.toProperties
