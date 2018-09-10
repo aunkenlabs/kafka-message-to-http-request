@@ -1,8 +1,12 @@
-version: "3"
+version: '3'
 
 services:
-  mockServer:
+
+  mock-server:
     image: mendhak/http-https-echo
+    ports:
+      - "8080:80"
+      - "8443:443"
 
   zookeeper:
     image: wurstmeister/zookeeper
@@ -13,16 +17,14 @@ services:
       KAFKA_ADVERTISED_HOST_NAME: kafka
       KAFKA_ADVERTISED_PORT: 9092
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_CREATE_TOPICS: "test:1:1"
     depends_on:
       - zookeeper
 
   topic-producer:
     image: wurstmeister/kafka:2.11-1.1.1
-    command: "bash -c 'for i in `seq 1 10000`;
-                       do
-                         echo \"{\\\"value\\\":$$i}\" | /opt/kafka/bin/kafka-console-producer.sh --broker-list kafka:9092 --topic test;
-                         echo $$i;
-                       done'"
+    command: "bash -c 'for i in `seq 1 1000`; do echo \"{\\\"id\\\":\\\"002\\\",\\\"method\\\":\\\"POST\\\",\\\"url\\\":\\\"http://mock-server/v3/mail/send\\\",\\\"headers\\\":{\\\"Authorization\\\":\\\"Bearer $SENDGRID_APIKEY\\\",\\\"Content-Type\\\":\\\"application/json\\\"},\\\"body\\\":{\\\"from\\\":{\\\"email\\\":\\\"ddellera@graphpath.ai\\\",\\\"name\\\":\\\"GraphPath\\\"},\\\"reply_to\\\":{\\\"email\\\":\\\"ddellera@graphpath.ai\\\",\\\"name\\\":\\\"GraphPath\\\"},\\\"template_id\\\":\\\"$TEMPLATE_ID\\\",\\\"personalizations\\\":[{\\\"to\\\":[{\\\"email\\\":\\\"diego.dellera@gmail.com\\\",\\\"name\\\":\\\"John Doe\\\"}],\\\"bcc\\\":[{\\\"email\\\":\\\"ddellera@graphpath.ai\\\",\\\"name\\\":\\\"GraphPath\\\"}],\\\"dynamic_template_data\\\":{\\\"lang\\\":\\\"en\\\",\\\"custom_args\\\":{\\\"instance\\\":\\\"qa-lat\\\",\\\"name\\\":\\\"John Doe\\\"},\\\"users\\\":[{\\\"email\\\":\\\"diego.dellera@gmail.com\\\",\\\"name\\\":\\\"John Doe\\\",\\\"username\\\":\\\"johndoe\\\"}],\\\"token\\\":{\\\"_id\\\":\\\"002\\\",\\\"customer\\\":\\\"qa-lat\\\",\\\"identityProvider\\\":\\\"FACEBOOK\\\",\\\"identityProviderUserId\\\":\\\"129364594515605\\\",\\\"fullName\\\":\\\"John Doe\\\",\\\"fbPages\\\":[\\\"565090300319345\\\"]}}}],\\\"categories\\\":[\\\"Echo\\\",\\\"FACEBOOK\\\"],\\\"asm\\\":{\\\"group_id\\\":8374,\\\"groups_to_display\\\":null}},\\\"type\\\":\\\"http\\\"}\" | /opt/kafka/bin/kafka-console-producer.sh --broker-list kafka:9092 --topic test; echo \"{\\\"value\\\":$$i}\" | /opt/kafka/bin/kafka-console-producer.sh --broker-list kafka:9092 --topic test; echo $$i; done'"
     depends_on:
       - kafka
 
@@ -33,4 +35,5 @@ services:
       kafka.application.id: "http-requests"
       kafka.bootstrap.servers: "kafka:9092"
     depends_on:
-      - kafka
+      - mock-server
+      - topic-producer

@@ -1,6 +1,6 @@
 name := "kafka-message-to-http-request"
 
-version := "0.3"
+version := "0.4"
 
 scalaVersion := "2.12.6"
 
@@ -31,6 +31,6 @@ dockerCommands := Seq(
   Cmd("FROM", "openjdk:8u171-jre-alpine3.8"),
   Cmd("WORKDIR", "/opt/docker"),
   Cmd("USER", "daemon"),
-  ExecCmd("ENTRYPOINT", "java", "-Xms32m", "-Xmx128m", "-cp", "lib/*", "com.graphpathai.Main"),
+  ExecCmd("ENTRYPOINT", "java", "-Xms32m", "-Xmx128m", "-cp", "lib/*", "ai.graphpath.Main"),
   Cmd("ADD", "--chown=daemon:daemon opt /opt")
 )
